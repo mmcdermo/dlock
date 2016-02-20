@@ -4,12 +4,11 @@ Dlock is a distributed lock library written in Go. You can use it to coordinate 
 # Usage
 To run a dlock server, you can use the following code:
 
-    go dlock_server.RunServer("localhost", "8422")
-    m.Run()
+    dlock_server.RunServer("localhost", "8422")
 
 Then to connect as a client and block until a lock is free, you can simply:
 
     conn, err := dlock_client.Connect("localhost", "8422")
     lock_name := "lock_test"
     client_name := "Trillby"
-    b := dlock_client.AcquireLock(conn, "lock_test", client_name)
+    b := dlock_client.AcquireLock(conn, lock_name, client_name)
