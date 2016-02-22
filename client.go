@@ -24,7 +24,7 @@ func runConnectionWriter(conn *Connection){
 			if _, ok := conn.acquire_await[key]; !ok {
 				//Key doesn't exist, send lock request
 				conn.acquire_await[key] = req.resp_chan
-				conn.conn.Write([]byte("try_acquire_lock:"+req.name+":"+req.owner+":\n"))
+				conn.conn.Write([]byte("try_acquire_lock||"+req.name+"||"+req.owner+"||\n"))
 			} else {
 				//Key already exists, trying to double lock
 				req.resp_chan <- "error:Double lock"
@@ -35,7 +35,7 @@ func runConnectionWriter(conn *Connection){
 				//Key doesn't exist, send lock request
 				conn.acquire_await[key] = req.resp_chan
 
-				conn.conn.Write([]byte("acquire_lock:"+req.name+":"+req.owner+":\n"))
+				conn.conn.Write([]byte("acquire_lock||"+req.name+"||"+req.owner+"||\n"))
 			} else {
 				//Key already exists, trying to double lock
 				req.resp_chan <- "error:Double lock"
@@ -46,7 +46,7 @@ func runConnectionWriter(conn *Connection){
 			if _, ok := conn.release_await[key]; !ok {
 				//Key doesn't exist, send release request
 				conn.release_await[key] = req.resp_chan
-				conn.conn.Write([]byte("release_lock:"+req.name+":"+req.owner+":\n"))
+				conn.conn.Write([]byte("release_lock||"+req.name+"||"+req.owner+"||\n"))
 			} else {
 				//Key already exists, trying to double release
 				req.resp_chan <- "error:Double lock"
@@ -69,7 +69,7 @@ func runConnectionReader(conn *Connection){
 
 		//Find the terminal character in order to convert to string properly
 		n := bytes.Index(buf, []byte{0})
-		args := strings.Split(string(buf[:n]), ":")
+		args := strings.Split(string(buf[:n]), "||")
 
 		if args[0] == "lock_acquired" && len(args) >= 3 {
 			key := args[1] + "_" + args[2]

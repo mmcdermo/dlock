@@ -15,17 +15,17 @@ func main(){
 
 func RunServer(host string, port string) {
 	//Initialize dlock memory goodies
-	Initialize()
+	state := Initialize()
 
 	//Setup the connection
-    listener, err := net.Listen("tcp", host+":"+port)
-    if err != nil {
-        fmt.Println("Dlock Error listening:", err.Error())
-        os.Exit(1)
-    }
+	listener, err := net.Listen("tcp", host+":"+port)
+	if err != nil {
+		fmt.Println("Dlock Error listening:", err.Error())
+		os.Exit(1)
+	}
 
-    // Close listener when application closes
-    defer listener.Close()
+	// Close listener when application closes
+	defer listener.Close()
 
 	// Listen for an incoming connection.
     fmt.Println("Dlock Listening on " + host + ":" + port)
@@ -36,12 +36,12 @@ func RunServer(host string, port string) {
             os.Exit(1)
         }
         // Handle connection
-        go handleRequest(conn)
+			go handleRequest(state, conn)
     }
 }
 
 // Handle Request
-func handleRequest(conn net.Conn) {
+func handleRequest(state dlock_state, conn net.Conn) {
 	buf := bufio.NewReader(conn)
 	for {
 		//Read data into buffer
@@ -52,7 +52,7 @@ func handleRequest(conn net.Conn) {
 			return
 		}
 
-		args := strings.Split(message, ":")
+		args := strings.Split(message, "||")
 		command := args[0]
 
 		if command == "acquire_lock" {
@@ -64,8 +64,8 @@ func handleRequest(conn net.Conn) {
 			lockName := args[1]
 			entityName := args[2]
 			go func(){
-				AcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
-				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":lock_acquired:\n"))
+				AcquireLock(state, lockName, conn.RemoteAddr().String() + "_" + entityName)
+				conn.Write([]byte("lock_acquired||"+lockName+"||"+entityName+"||lock_acquired||\n"))
 			}()
 		} else if command == "try_acquire_lock" {
 			if len(args) < 3 {
@@ -75,11 +75,11 @@ func handleRequest(conn net.Conn) {
 
 			lockName := args[1]
 			entityName := args[2]
-			s := TryAcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
+			s := TryAcquireLock(state, lockName, conn.RemoteAddr().String() + "_" + entityName)
 			if "success" == s {
-				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":lock_acquired:\n"))
+				conn.Write([]byte("lock_acquired||"+lockName+"||"+entityName+"||lock_acquired||\n"))
 			} else {
-				conn.Write([]byte("lock_try_acquire_failed:"+lockName+":"+entityName+":"+s+"\n"))				}
+				conn.Write([]byte("lock_try_acquire_failed||"+lockName+"||"+entityName+"||"+s+"||\n"))				}
 		} else if command == "release_lock" {
 			if len(args) < 3 {
 				conn.Write([]byte("too_few_arguments\n"))
@@ -89,8 +89,8 @@ func handleRequest(conn net.Conn) {
 			entityName := args[2]
 
 			go func(){
-				ReleaseLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
-				conn.Write([]byte("lock_released:"+lockName+":"+entityName+":lock_released:\n"))
+				ReleaseLock(state, lockName, conn.RemoteAddr().String() + "_" + entityName)
+				conn.Write([]byte("lock_released||"+lockName+"||"+entityName+"||lock_released||\n"))
 			}()
 		} else {
 

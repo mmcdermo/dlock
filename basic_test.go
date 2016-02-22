@@ -4,11 +4,26 @@ import (
 	"testing"
 	"time"
 	"strconv"
+	"strings"
+	"sync"
 //	"fmt"
 )
 
+var (
+	clusterStrings []string
+)
+
 func TestMain(m *testing.M){
+
 	go RunServer("localhost", "8422")
+	go RunServer("localhost", "8423")
+	go RunServer("localhost", "8424")
+	go RunServer("localhost", "8425")
+
+	clusterStrings = []string{"localhost:8422",
+		"localhost:8423",
+		"localhost:8424",
+		"localhost:8425"}
 
 	//Slight delay so that server gets up and running
 	time.Sleep(250 * time.Millisecond)
@@ -75,7 +90,7 @@ func TestLockOrdering(t *testing.T){
 	}
 
 
-	limit := 1000
+	limit := 200
 	finish_order := make(chan int, limit)
 	for i := 0; i < limit; i++ {
 		_i := i // We want the current i, not the final state of i (limit)
@@ -125,7 +140,8 @@ func TestTryAcquire(t *testing.T){
 
 	//Attempting to acquire again shouldn't
 	s = ClientTryAcquireLock(conn, "lock_test_acquire", "")
-	if s != "owner=127.0.0.1" {
+	ownerParts := strings.Split(s, ":")
+	if ownerParts[0] != "owner=127.0.0.1" {
 		t.Error("Incorrectly acquired lock: "+s)
 	}
 
@@ -135,4 +151,51 @@ func TestTryAcquire(t *testing.T){
 	if s != "lock_acquired" {
 		t.Error("Couldn't acquire lock: "+s)
 	}
+}
+
+func TestCluster(t *testing.T){
+	c, err := ClusterInitialize(clusterStrings)
+	if err != nil {
+		t.Fatal("Cluster initialization error: "+err.Error())
+	}
+
+	success, statuses := c.AcquireLock("lock0", "entity")
+	if false == success {
+		t.Fatal("Failed to acquire lock")
+	}
+
+	success, statuses = c.TryAcquireLock("lock0", "entity")
+	if true == success {
+		t.Fatal("Incorrectly acquired lock")
+	}
+
+
+	//Test multiple clients competing
+	c2, err := ClusterInitialize(clusterStrings)
+	if err != nil {
+		t.Fatal("Cluster initialization error: "+err.Error())
+	}
+	success2, statuses2 := c2.TryAcquireLock("lock0", "entity")
+	if true == success2 {
+		t.Fatal("Incorrectly acquired lock")
+	}
+
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func(){
+		success, statuses = c.TryAcquireLock("lock_race", "entity")
+		wg.Done()
+	}()
+	go func(){
+		success2, statuses2 = c2.TryAcquireLock("lock_race2", "entity2")
+		wg.Done()
+	}()
+	wg.Wait()
+	t.Log(statuses)
+	t.Log(statuses2)
+
+
+
+	t.Fatal(statuses)
 }
