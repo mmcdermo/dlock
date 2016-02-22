@@ -56,7 +56,7 @@ func TestLocking(t *testing.T){
 			result = _i
 			time.Sleep(delay)
 
-			s = ClientReleaseLock(conn, "lock_test_locking", entity)
+			_, s = ClientReleaseLock(conn, "lock_test_locking", entity)
 			if s != "lock_released" {
 				t.Error("Release lock failed: "+s)
 			}
@@ -109,7 +109,7 @@ func TestLockOrdering(t *testing.T){
 				t.Error("Acquire lock failed: "+s)
 			}
 			finish_order <- _i
-			s = ClientReleaseLock(conn, "lock_test_order", entity)
+			_, s = ClientReleaseLock(conn, "lock_test_order", entity)
 			if s != "lock_released" {
 				t.Error("Release lock failed: "+s)
 			}
@@ -158,15 +158,31 @@ func TestCluster(t *testing.T){
 		t.Fatal("Cluster initialization error: "+err.Error())
 	}
 
-	var success bool
+	// Ensure that we fail to acquire a lock if it's already acquired
 	statuses := c.AcquireLock("lock0", "entity")
-
-	success, statuses = c.TryAcquireLock("lock0", "entity")
+	success, statuses := c.TryAcquireLock("lock0", "entity")
 	if true == success {
 		t.Fatal("Incorrectly acquired lock")
 	}
-
 	t.Log(statuses)
+
+	// Ensure that other entities can't release the lock
+	success, statuses = c.ReleaseLock("lock0", "entity2")
+	if true == success {
+		t.Fatal("Wrong entity capable of releasing lock")
+	}
+
+	// Test releasing and reacquiring the lock
+	success, statuses = c.ReleaseLock("lock0", "entity")
+	if false == success {
+		t.Fatal("Failed to release lock")
+	}
+
+	success, statuses = c.TryAcquireLock("lock0", "entity")
+	if false == success {
+		t.Fatal("Failed to reacquire lock")
+	}
+
 	//Test two clients accessing the same lock
 	c2, err := ClusterInitialize(clusterStrings)
 	if err != nil {

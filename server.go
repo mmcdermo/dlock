@@ -90,8 +90,12 @@ func handleRequest(state dlock_state, conn net.Conn) {
 			entityName := args[2]
 
 			go func(){
-				ReleaseLock(state, lockName, /*conn.RemoteAddr().String() + */"_" + entityName)
-				conn.Write([]byte("lock_released||"+lockName+"||"+entityName+"||lock_released||\n"))
+				res := ReleaseLock(state, lockName, /*conn.RemoteAddr().String() + */"_" + entityName)
+				if res == "lock_released" {
+					conn.Write([]byte("lock_released||"+lockName+"||"+entityName+"||lock_released||\n"))
+				} else {
+					conn.Write([]byte("lock_released||"+lockName+"||"+entityName+"||release_error||\n"))
+				}
 			}()
 		} else {
 

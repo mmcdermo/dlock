@@ -94,7 +94,7 @@ func manageMap(state dlock_state){
 					giveLock(state, acquire_request)
 				}
 				//Release request successful, return true.
-				req.resp_chan <- "success"
+				req.resp_chan <- "lock_released"
 			}
 		}
 	}

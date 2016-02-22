@@ -70,7 +70,7 @@ func (c *Cluster) ReleaseLock(lock_name string, entity string) (bool, []string) 
 	statuses := make([]string, 0)
 	released := true
 	for _, conn := range c.cluster_connections {
-		status := ClientReleaseLock(conn, lock_name, entity)
+		_, status := ClientReleaseLock(conn, lock_name, entity)
 		if "lock_released" != status {
 			released = false
 		}

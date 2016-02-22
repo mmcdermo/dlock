@@ -154,7 +154,7 @@ func ClientTryAcquireLock(conn *Connection, lock_name string, entity string) str
 }
 
 
-func ClientReleaseLock(conn *Connection, lock_name string, entity string) string {
+func ClientReleaseLock(conn *Connection, lock_name string, entity string) (bool, string) {
 	resp_chan := make(chan string)
 
 	//Queue release request
@@ -163,5 +163,5 @@ func ClientReleaseLock(conn *Connection, lock_name string, entity string) string
 	//Wait for lock release (or failure)
 	s:= <- resp_chan
 
-	return s
+	return s == "lock_released", s
 }
