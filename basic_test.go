@@ -188,7 +188,7 @@ func TestCluster(t *testing.T){
 	if err != nil {
 		t.Fatal("Cluster initialization error: "+err.Error())
 	}
-	success2, _ := c2.TryAcquireLock("lock0", "entity")
+	success2, _ := c2.TryAcquireLock("lock0", "entity2")
 	if true == success2 {
 		t.Fatal("Incorrectly acquired lock")
 	}
