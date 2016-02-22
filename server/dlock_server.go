@@ -2,9 +2,9 @@ package dlock_server
 
 import (
 	"strings"
-    "fmt"
-    "net"
-    "os"
+	"fmt"
+	"net"
+	"os"
 	"dlock"
 	//"bytes"
 	"bufio"
@@ -68,9 +68,20 @@ func request(conn net.Conn) {
 				dlock.AcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
 				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":\n"))
 			}()
-		}
+		} else if command == "try_acquire_lock" {
+			if len(args) < 3 {
+				conn.Write([]byte("too_few_arguments\n"))
+				continue;
+			}
 
-		if command == "release_lock" {
+			lockName := args[1]
+			entityName := args[2]
+			b := dlock.TryAcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
+			if true == b {
+				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":\n"))
+			} else {
+				conn.Write([]byte("lock_try_acquire_failed:"+lockName+":"+entityName+":\n"))				}
+		} else if command == "release_lock" {
 			if len(args) < 3 {
 				conn.Write([]byte("too_few_arguments\n"))
 				continue;
@@ -82,6 +93,8 @@ func request(conn net.Conn) {
 				dlock.ReleaseLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
 				conn.Write([]byte("lock_released:"+lockName+":"+entityName+":\n"))
 			}()
+		} else {
+
 		}
 
 		if strings.TrimSpace(command) == "close" {
