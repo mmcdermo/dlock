@@ -138,31 +138,3 @@ func TestTryAcquire(t *testing.T){
 		t.Error("Couldn't acquire lock ")
 	}
 }
-
-
-//Ensure TryAcquire works
-func TestTryAcquire(t *testing.T){
-	conn, err := dlock_client.Connect("localhost", "8422")
-	if err != nil {
-		t.Error("Connection error "+err.Error())
-	}
-
-	//Acquiring a nonexistent lock should work
-	b := dlock_client.TryAcquireLock(conn, "lock_test_acquire", "")
-	if b != true {
-		t.Error("Couldn't acquire lock ")
-	}
-
-	//Attempting to acquire again shouldn't
-	b = dlock_client.TryAcquireLock(conn, "lock_test_acquire", "")
-	if b != false {
-		t.Error("Incorrectly acquired lock ")
-	}
-
-	//After releasing, it should be available again
-	dlock_client.ReleaseLock(conn, "lock_test_acquire", "")
-	b = dlock_client.TryAcquireLock(conn, "lock_test_acquire", "")
-	if b != true {
-		t.Error("Couldn't acquire lock ")
-	}
-}

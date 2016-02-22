@@ -27,6 +27,7 @@ var (
 func Initialize(){
 	locks = make(map[string] lock_state)
 	acquire_requests = make(chan request)
+	try_acquire_requests = make(chan request)
 	release_requests = make(chan request)
 	go manageMap()
 }
