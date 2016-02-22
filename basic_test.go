@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 	"strconv"
-	"strings"
+	_ "strings"
 	"sync"
-//	"fmt"
+	_	"fmt"
 )
 
 var (
@@ -140,8 +140,7 @@ func TestTryAcquire(t *testing.T){
 
 	//Attempting to acquire again shouldn't
 	s = ClientTryAcquireLock(conn, "lock_test_acquire", "")
-	ownerParts := strings.Split(s, ":")
-	if ownerParts[0] != "owner=127.0.0.1" {
+	if s != "owner=_" {
 		t.Error("Incorrectly acquired lock: "+s)
 	}
 
@@ -159,43 +158,69 @@ func TestCluster(t *testing.T){
 		t.Fatal("Cluster initialization error: "+err.Error())
 	}
 
-	success, statuses := c.AcquireLock("lock0", "entity")
-	if false == success {
-		t.Fatal("Failed to acquire lock")
-	}
+	var success bool
+	statuses := c.AcquireLock("lock0", "entity")
 
 	success, statuses = c.TryAcquireLock("lock0", "entity")
 	if true == success {
 		t.Fatal("Incorrectly acquired lock")
 	}
 
-
-	//Test multiple clients competing
+	t.Log(statuses)
+	//Test two clients accessing the same lock
 	c2, err := ClusterInitialize(clusterStrings)
 	if err != nil {
 		t.Fatal("Cluster initialization error: "+err.Error())
 	}
-	success2, statuses2 := c2.TryAcquireLock("lock0", "entity")
+	success2, _ := c2.TryAcquireLock("lock0", "entity")
 	if true == success2 {
 		t.Fatal("Incorrectly acquired lock")
 	}
 
+	c.ClusterShutdown()
+	c2.ClusterShutdown()
+}
+
+func TestClusterCompetition(t *testing.T){
+	clusters := make([]Cluster, 0)
+
+	for i := 0; i < 10; i++ {
+		c, err := ClusterInitialize(clusterStrings)
+		if err != nil {
+			t.Fatal("Cluster initialization error: "+err.Error())
+		}
+		clusters = append(clusters, c)
+	}
+
 
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func(){
-		success, statuses = c.TryAcquireLock("lock_race", "entity")
-		wg.Done()
-	}()
-	go func(){
-		success2, statuses2 = c2.TryAcquireLock("lock_race2", "entity2")
-		wg.Done()
-	}()
+
+	successes := make([]bool, 0)
+	statuses := make([][]string, 0)
+
+	wg.Add(len(clusters))
+	for i, cluster := range clusters {
+		t.Log(strconv.Itoa(i))
+		_cluster := cluster //Capture
+		_i := i //Capture
+		go func(){
+			time.Sleep(10 * time.Millisecond)
+			success, status := _cluster.TryAcquireLock("lock_competition", "cordial_entity"+strconv.Itoa(_i))
+			successes = append(successes, success)
+			statuses = append(statuses, status)
+			wg.Done()
+		}()
+	}
 	wg.Wait()
+
 	t.Log(statuses)
-	t.Log(statuses2)
-
-
-
-	t.Fatal(statuses)
+	n_acquired := 0
+	for _, success := range successes {
+		if success == true {
+			n_acquired += 1
+		}
+	}
+	if n_acquired != 1 {
+		t.Fatal("Too many locks acquired")
+	}
 }

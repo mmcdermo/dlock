@@ -64,7 +64,7 @@ func handleRequest(state dlock_state, conn net.Conn) {
 			lockName := args[1]
 			entityName := args[2]
 			go func(){
-				AcquireLock(state, lockName, conn.RemoteAddr().String() + "_" + entityName)
+				AcquireLock(state, lockName, /*conn.RemoteAddr().String() +*/ "_" + entityName)
 				conn.Write([]byte("lock_acquired||"+lockName+"||"+entityName+"||lock_acquired||\n"))
 			}()
 		} else if command == "try_acquire_lock" {
@@ -75,8 +75,9 @@ func handleRequest(state dlock_state, conn net.Conn) {
 
 			lockName := args[1]
 			entityName := args[2]
-			s := TryAcquireLock(state, lockName, conn.RemoteAddr().String() + "_" + entityName)
+			s := TryAcquireLock(state, lockName, /*conn.RemoteAddr().String() +*/ "_" + entityName)
 			if "success" == s {
+
 				conn.Write([]byte("lock_acquired||"+lockName+"||"+entityName+"||lock_acquired||\n"))
 			} else {
 				conn.Write([]byte("lock_try_acquire_failed||"+lockName+"||"+entityName+"||"+s+"||\n"))				}
@@ -89,7 +90,7 @@ func handleRequest(state dlock_state, conn net.Conn) {
 			entityName := args[2]
 
 			go func(){
-				ReleaseLock(state, lockName, conn.RemoteAddr().String() + "_" + entityName)
+				ReleaseLock(state, lockName, /*conn.RemoteAddr().String() + */"_" + entityName)
 				conn.Write([]byte("lock_released||"+lockName+"||"+entityName+"||lock_released||\n"))
 			}()
 		} else {

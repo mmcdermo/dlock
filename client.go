@@ -16,6 +16,10 @@ type Connection struct {
 	release_await map[string]chan string
 }
 
+func (c *Connection) Close() error {
+	return c.conn.Close()
+}
+
 func runConnectionWriter(conn *Connection){
 	for {
 		select {
@@ -27,7 +31,7 @@ func runConnectionWriter(conn *Connection){
 				conn.conn.Write([]byte("try_acquire_lock||"+req.name+"||"+req.owner+"||\n"))
 			} else {
 				//Key already exists, trying to double lock
-				req.resp_chan <- "error:Double lock"
+				req.resp_chan <- "Error: Double try acquire"
 			}
 		case req := <- conn.acquire_requests:
 			key := req.name + "_" + req.owner
@@ -38,7 +42,7 @@ func runConnectionWriter(conn *Connection){
 				conn.conn.Write([]byte("acquire_lock||"+req.name+"||"+req.owner+"||\n"))
 			} else {
 				//Key already exists, trying to double lock
-				req.resp_chan <- "error:Double lock"
+				req.resp_chan <- "Error: Double acquire"
 			}
 
 		case req := <- conn.release_requests:
@@ -49,7 +53,7 @@ func runConnectionWriter(conn *Connection){
 				conn.conn.Write([]byte("release_lock||"+req.name+"||"+req.owner+"||\n"))
 			} else {
 				//Key already exists, trying to double release
-				req.resp_chan <- "error:Double lock"
+				req.resp_chan <- "Eerror: Double release"
 			}
 
 		}
