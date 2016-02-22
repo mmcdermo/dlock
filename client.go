@@ -7,55 +7,49 @@ import (
 	"log"
 )
 
-type request struct {
-	lock_name   string
-	entity      string
-	resp_chan   chan bool
-}
-
 type Connection struct {
 	conn net.Conn
 	acquire_requests chan request
 	try_acquire_requests chan request
 	release_requests chan request
-	acquire_await map[string]chan bool
-	release_await map[string]chan bool
+	acquire_await map[string]chan string
+	release_await map[string]chan string
 }
 
 func runConnectionWriter(conn *Connection){
 	for {
 		select {
 		case req := <- conn.try_acquire_requests:
-			key := req.lock_name + "_" + req.entity
+			key := req.name + "_" + req.owner
 			if _, ok := conn.acquire_await[key]; !ok {
 				//Key doesn't exist, send lock request
 				conn.acquire_await[key] = req.resp_chan
-				conn.conn.Write([]byte("try_acquire_lock:"+req.lock_name+":"+req.entity+":\n"))
+				conn.conn.Write([]byte("try_acquire_lock:"+req.name+":"+req.owner+":\n"))
 			} else {
 				//Key already exists, trying to double lock
-				req.resp_chan <- false
+				req.resp_chan <- "error:Double lock"
 			}
 		case req := <- conn.acquire_requests:
-			key := req.lock_name + "_" + req.entity
+			key := req.name + "_" + req.owner
 			if _, ok := conn.acquire_await[key]; !ok {
 				//Key doesn't exist, send lock request
 				conn.acquire_await[key] = req.resp_chan
 
-				conn.conn.Write([]byte("acquire_lock:"+req.lock_name+":"+req.entity+":\n"))
+				conn.conn.Write([]byte("acquire_lock:"+req.name+":"+req.owner+":\n"))
 			} else {
 				//Key already exists, trying to double lock
-				req.resp_chan <- false
+				req.resp_chan <- "error:Double lock"
 			}
 
 		case req := <- conn.release_requests:
-			key := req.lock_name + "_" + req.entity
+			key := req.name + "_" + req.owner
 			if _, ok := conn.release_await[key]; !ok {
 				//Key doesn't exist, send release request
 				conn.release_await[key] = req.resp_chan
-				conn.conn.Write([]byte("release_lock:"+req.lock_name+":"+req.entity+":\n"))
+				conn.conn.Write([]byte("release_lock:"+req.name+":"+req.owner+":\n"))
 			} else {
 				//Key already exists, trying to double release
-				req.resp_chan <- false
+				req.resp_chan <- "error:Double lock"
 			}
 
 		}
@@ -81,7 +75,7 @@ func runConnectionReader(conn *Connection){
 			key := args[1] + "_" + args[2]
 			if _, ok := conn.acquire_await[key]; ok {
 				//Key exists, we can push to the channel
-				conn.acquire_await[key] <- true
+				conn.acquire_await[key] <- args[3]
 				delete(conn.acquire_await, key)
 			} else {
 				log.Println("Error: Lock/Entity combination never requested. Lock:"+args[1] + ". Entity: "+args[2])
@@ -90,7 +84,7 @@ func runConnectionReader(conn *Connection){
 			key := args[1] + "_" + args[2]
 			if _, ok := conn.acquire_await[key]; ok {
 				//Key exists, we can push to the channel
-				conn.acquire_await[key] <- false
+				conn.acquire_await[key] <- args[3]
 				delete(conn.acquire_await, key)
 			} else {
 				log.Println("Error: Lock/Entity combination never requested. Lock:"+args[1] + ". Entity: "+args[2])
@@ -100,7 +94,7 @@ func runConnectionReader(conn *Connection){
 			key := args[1] + "_" + args[2]
 			if _, ok := conn.release_await[key]; ok {
 				//Key exists, we can push to the channel
-				conn.release_await[key] <- true
+				conn.release_await[key] <- args[3]
 				delete(conn.release_await, key)
 			} else {
 				log.Println("Error: Lock/Entity combination never requested. Lock:"+args[1] + ". Entity: "+args[2])
@@ -120,8 +114,9 @@ func Connect(host string, port string) (*Connection, error) {
 		make(chan request),
 		make(chan request),
 		make(chan request),
-		make(map[string]chan bool),
-		make(map[string]chan bool)}
+		make(map[string]chan string),
+		make(map[string]chan string),
+	}
 	if err != nil {
 		return &_conn, err
 	}
@@ -132,37 +127,37 @@ func Connect(host string, port string) (*Connection, error) {
 	return &_conn, err
 }
 
-func AcquireLock(conn *Connection, lock_name string, entity string) bool{
-	resp_chan := make(chan bool)
+func ClientAcquireLock(conn *Connection, lock_name string, entity string) string {
+	resp_chan := make(chan string)
 
 	//Queue lock request
 	conn.acquire_requests <- request{lock_name, entity, resp_chan}
 
 	//Wait for lock acquirement
-	b := <- resp_chan
-	return b
+	s:= <- resp_chan
+	return s
 }
 
-func TryAcquireLock(conn *Connection, lock_name string, entity string) bool{
-	resp_chan := make(chan bool)
+func ClientTryAcquireLock(conn *Connection, lock_name string, entity string) string {
+	resp_chan := make(chan string)
 
 	//Queue lock request
 	conn.try_acquire_requests <- request{lock_name, entity, resp_chan}
 
 	//Wait for lock acquirement (or failure)
-	b := <- resp_chan
-	return b
+	s:= <- resp_chan
+	return s
 }
 
 
-func ReleaseLock(conn *Connection, lock_name string, entity string) bool{
-	resp_chan := make(chan bool)
+func ClientReleaseLock(conn *Connection, lock_name string, entity string) string {
+	resp_chan := make(chan string)
 
 	//Queue release request
 	conn.release_requests <- request{lock_name, entity, resp_chan}
 
 	//Wait for lock release (or failure)
-	b := <- resp_chan
+	s:= <- resp_chan
 
-	return b
+	return s
 }

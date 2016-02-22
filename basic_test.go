@@ -1,16 +1,14 @@
-package main
+package dlock
 
 import (
 	"testing"
-	"dlock/server"
-	"dlock/client"
 	"time"
 	"strconv"
 //	"fmt"
 )
 
 func TestMain(m *testing.M){
-	go dlock_server.RunServer("localhost", "8422")
+	go RunServer("localhost", "8422")
 
 	//Slight delay so that server gets up and running
 	time.Sleep(250 * time.Millisecond)
@@ -22,7 +20,7 @@ func TestMain(m *testing.M){
 // Each thread tries to acquire the lock, and waits a second once it has it.
 // Ensure that at t = n, result = n
 func TestLocking(t *testing.T){
-	conn, err := dlock_client.Connect("localhost", "8422")
+	conn, err := Connect("localhost", "8422")
 	if err != nil {
 		t.Error("Connection error "+err.Error())
 	}
@@ -35,17 +33,17 @@ func TestLocking(t *testing.T){
 		_i := i //capture
 		go func(){
 			entity := "thread_"+strconv.Itoa(_i)
-			b := dlock_client.AcquireLock(conn, "lock_test_locking", entity)
-			if b != true {
-				t.Error("Acquire lock failed")
+			s := ClientAcquireLock(conn, "lock_test_locking", entity)
+			if s != "lock_acquired" {
+				t.Error("Acquire lock failed: "+s)
 			}
 
 			result = _i
 			time.Sleep(delay)
 
-			b = dlock_client.ReleaseLock(conn, "lock_test_locking", entity)
-			if b != true {
-				t.Error("Release lock failed")
+			s = ClientReleaseLock(conn, "lock_test_locking", entity)
+			if s != "lock_released" {
+				t.Error("Release lock failed: "+s)
 			}
 		}()
 	}
@@ -67,11 +65,11 @@ func TestLocking(t *testing.T){
 // When they complete, they push to finish_order so that we can ensure
 // they executed in the correct order.
 func TestLockOrdering(t *testing.T){
-	conn1, err := dlock_client.Connect("localhost", "8422")
+	conn1, err := Connect("localhost", "8422")
 	if err != nil {
 		t.Error("Connection error "+err.Error())
 	}
-	conn2, err := dlock_client.Connect("localhost", "8422")
+	conn2, err := Connect("localhost", "8422")
 	if err != nil {
 		t.Error("Connection error")
 	}
@@ -91,14 +89,14 @@ func TestLockOrdering(t *testing.T){
 				conn = conn2
 			}
 			entity := "entity_"+strconv.Itoa(_i)
-			b := dlock_client.AcquireLock(conn, "lock_test_order", entity)
-			if b != true {
-				t.Error("Acquire lock failed")
+			s := ClientAcquireLock(conn, "lock_test_order", entity)
+			if s != "lock_acquired" {
+				t.Error("Acquire lock failed: "+s)
 			}
 			finish_order <- _i
-			b = dlock_client.ReleaseLock(conn, "lock_test_order", entity)
-			if b != true {
-				t.Error("Release lock failed")
+			s = ClientReleaseLock(conn, "lock_test_order", entity)
+			if s != "lock_released" {
+				t.Error("Release lock failed: "+s)
 			}
 		}()
 	}
@@ -114,27 +112,27 @@ func TestLockOrdering(t *testing.T){
 
 //Ensure TryAcquire works
 func TestTryAcquire(t *testing.T){
-	conn, err := dlock_client.Connect("localhost", "8422")
+	conn, err := Connect("localhost", "8422")
 	if err != nil {
 		t.Error("Connection error "+err.Error())
 	}
 
 	//Acquiring a nonexistent lock should work
-	b := dlock_client.TryAcquireLock(conn, "lock_test_acquire", "")
-	if b != true {
-		t.Error("Couldn't acquire lock ")
+	s := ClientTryAcquireLock(conn, "lock_test_acquire", "")
+	if s != "lock_acquired" {
+		t.Error("Couldn't acquire lock: "+s)
 	}
 
 	//Attempting to acquire again shouldn't
-	b = dlock_client.TryAcquireLock(conn, "lock_test_acquire", "")
-	if b != false {
-		t.Error("Incorrectly acquired lock ")
+	s = ClientTryAcquireLock(conn, "lock_test_acquire", "")
+	if s != "owner=127.0.0.1" {
+		t.Error("Incorrectly acquired lock: "+s)
 	}
 
 	//After releasing, it should be available again
-	dlock_client.ReleaseLock(conn, "lock_test_acquire", "")
-	b = dlock_client.TryAcquireLock(conn, "lock_test_acquire", "")
-	if b != true {
-		t.Error("Couldn't acquire lock ")
+	ClientReleaseLock(conn, "lock_test_acquire", "")
+	s = ClientTryAcquireLock(conn, "lock_test_acquire", "")
+	if s != "lock_acquired" {
+		t.Error("Couldn't acquire lock: "+s)
 	}
 }

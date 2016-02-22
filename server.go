@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"dlock"
 	//"bytes"
 	"bufio"
 )
@@ -16,7 +15,7 @@ func main(){
 
 func RunServer(host string, port string) {
 	//Initialize dlock memory goodies
-	dlock.Initialize()
+	Initialize()
 
 	//Setup the connection
     listener, err := net.Listen("tcp", host+":"+port)
@@ -37,12 +36,12 @@ func RunServer(host string, port string) {
             os.Exit(1)
         }
         // Handle connection
-        go request(conn)
+        go handleRequest(conn)
     }
 }
 
 // Handle Request
-func request(conn net.Conn) {
+func handleRequest(conn net.Conn) {
 	buf := bufio.NewReader(conn)
 	for {
 		//Read data into buffer
@@ -65,8 +64,8 @@ func request(conn net.Conn) {
 			lockName := args[1]
 			entityName := args[2]
 			go func(){
-				dlock.AcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
-				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":\n"))
+				AcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
+				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":lock_acquired:\n"))
 			}()
 		} else if command == "try_acquire_lock" {
 			if len(args) < 3 {
@@ -76,11 +75,11 @@ func request(conn net.Conn) {
 
 			lockName := args[1]
 			entityName := args[2]
-			b := dlock.TryAcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
-			if true == b {
-				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":\n"))
+			s := TryAcquireLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
+			if "success" == s {
+				conn.Write([]byte("lock_acquired:"+lockName+":"+entityName+":lock_acquired:\n"))
 			} else {
-				conn.Write([]byte("lock_try_acquire_failed:"+lockName+":"+entityName+":\n"))				}
+				conn.Write([]byte("lock_try_acquire_failed:"+lockName+":"+entityName+":"+s+"\n"))				}
 		} else if command == "release_lock" {
 			if len(args) < 3 {
 				conn.Write([]byte("too_few_arguments\n"))
@@ -90,8 +89,8 @@ func request(conn net.Conn) {
 			entityName := args[2]
 
 			go func(){
-				dlock.ReleaseLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
-				conn.Write([]byte("lock_released:"+lockName+":"+entityName+":\n"))
+				ReleaseLock(lockName, conn.RemoteAddr().String() + "_" + entityName)
+				conn.Write([]byte("lock_released:"+lockName+":"+entityName+":lock_released:\n"))
 			}()
 		} else {
 
