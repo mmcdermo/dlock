@@ -20,6 +20,7 @@ type lock_state struct {
 var (
 	locks map[string]lock_state
 	acquire_requests chan request
+	try_acquire_requests chan request
 	release_requests chan request
 )
 
@@ -34,6 +35,11 @@ func Initialize(){
 func giveLock(req request){
 	locks[req.name] = lock_state{locks[req.name].requests, req.owner}
 	req.resp_chan <- true
+}
+
+//Fail to acquire a lock and push false on the channel
+func failAcquireLock(req request){
+	req.resp_chan <- false
 }
 
 func manageMap(){
@@ -51,6 +57,18 @@ func manageMap(){
 				//Otherwise, queue the request for this lock
 				locks[req.name] = lock_state{ append(locks[req.name].requests, req),
 					locks[req.name].owner }
+			}
+		case req := <- try_acquire_requests:
+			//Process acquire requests
+			if _, ok := locks[req.name]; !ok {
+				//Create lock entry
+				locks[req.name] = lock_state{ requests: make([]request,0,100),
+					owner: "" }
+				//Give away lock like it's candy
+				giveLock(req)
+			} else {
+				//Otherwise, push failure on the acquisition channel
+				failAcquireLock(req)
 			}
 		case req := <- release_requests:
 			//Process release requests
@@ -89,6 +107,19 @@ func AcquireLock(lock_name string, entity string){
 	_ = <- req.resp_chan
 
 	return
+}
+
+func TryAcquireLock(lock_name string, entity string) bool{
+	//Create a request with a new channel that we'll listen on
+	req := request {lock_name, entity, make(chan bool) }
+
+	//Queue the request
+	try_acquire_requests <- req
+
+	//Wait for the lock to be acquired
+	b := <- req.resp_chan
+
+	return b
 }
 
 func ReleaseLock(lock_name string, entity string) (bool){
