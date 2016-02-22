@@ -1,4 +1,4 @@
-opackage dlock
+package dlock
 
 import (
 //	"errors"
