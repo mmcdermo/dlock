@@ -24,6 +24,16 @@ type Connection struct {
 func runConnectionWriter(conn *Connection){
 	for {
 		select {
+		case req := <- conn.try_acquire_requests:
+			key := req.lock_name + "_" + req.entity
+			if _, ok := conn.acquire_await[key]; !ok {
+				//Key doesn't exist, send lock request
+				conn.acquire_await[key] = req.resp_chan
+				conn.conn.Write([]byte("try_acquire_lock:"+req.lock_name+":"+req.entity+":\n"))
+			} else {
+				//Key already exists, trying to double lock
+				req.resp_chan <- false
+			}
 		case req := <- conn.acquire_requests:
 			key := req.lock_name + "_" + req.entity
 			if _, ok := conn.acquire_await[key]; !ok {
