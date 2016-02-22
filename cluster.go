@@ -38,6 +38,7 @@ func (c *cluster) AcquireLock(lock_name string, entity string) (bool, []string) 
 
 func (c *cluster) TryAcquireLock(lock_name string, entity string) (bool, []string) {
 	owners := make([]string, 0)
+	success_count := 0
 	for _, conn := range c.cluster_connections {
 		status := ClientTryAcquireLock(conn, lock_name, entity)
 		if "lock_acquired" != status {
@@ -45,7 +46,8 @@ func (c *cluster) TryAcquireLock(lock_name string, entity string) (bool, []strin
 			owners = append(owners, statusParts[1])
 		}
 	}
-	return len(owners) == 0, owners
+	n := len(c.cluster_connections)
+	return success_count >= (n+1)/2, owners
 }
 
 func (c *cluster) ReleaseLock(lock_name string, entity string) (bool, []string) {
