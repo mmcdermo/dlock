@@ -29,15 +29,41 @@ func (c *Cluster) ClusterShutdown() {
 	}
 }
 
-// Block until we've acquired a majority of locks
-func (c *Cluster) AcquireLock(lock_name string, entity string) []string {
-	success := false
+// Attempt to retrieve lock until some entity has acquired the majority of locks
+func (c *Cluster) ConsensusLock(lock_name string, entity string) []string {
+	continue := true
 	statuses := make([]string, 0)
+	n := len(c.cluster_connections)
+
 	for false == success {
 		if len(statuses) != 0 {
+			success, owners = c.TryAcquireLock(lock_name, entity)
+
+			//Determine how many locks we've acquired
+			success_count := 0
+			for i, owner := range owners {
+				if owner == entity {
+					success_count += 1
+				}
+			}
+
+			if success_count >= (n+1)/2 {
+				//Continue acquiring locks until we have all of them
+				if success_count == len(c.cluster_connections) {
+
+				}
+			} else {
+				//Release all the locks we do have
+				for i, owner := range owners {
+					if owner == entity {
+						c.cluster_connections[i].ReleaseLock(lock_name, entity)
+					}
+				}
 			time.Sleep(250 * time.Millisecond)
 		}
-		success, statuses = c.TryAcquireLock(lock_name, entity)
+
+
+		}
 	}
 	return statuses
 }
@@ -58,6 +84,7 @@ func (c *Cluster) TryAcquireLock(lock_name string, entity string) (bool, []strin
 				owners = append(owners, "Error: "+statusParts[0])
 			}
 		} else {
+			owners = append(owners, entity)
 			success_count += 1
 		}
 	}
