@@ -2,8 +2,8 @@ package main
 
 import (
 	"testing"
-	"dlock/server"
-	"dlock/client"
+	"github.com/mmcdermo/dlock/server"
+	"github.com/mmcdermo/dlock/client"
 	"time"
 	"strconv"
 //	"fmt"

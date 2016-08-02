@@ -2,10 +2,10 @@ package dlock_server
 
 import (
 	"strings"
-    "fmt"
-    "net"
-    "os"
-	"dlock"
+	"fmt"
+	"net"
+	"os"
+	"github.com/mmcdermo/dlock"
 	//"bytes"
 	"bufio"
 )
