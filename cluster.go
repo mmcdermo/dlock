@@ -31,10 +31,10 @@ func (c *Cluster) ClusterShutdown() {
 
 // Attempt to retrieve lock until some entity has acquired the majority of locks
 func (c *Cluster) ConsensusLock(lock_name string, entity string) []string {
-	continue := true
 	statuses := make([]string, 0)
 	n := len(c.cluster_connections)
-
+	success := false
+	owners := make([]string, 0)
 	for false == success {
 		if len(statuses) != 0 {
 			success, owners = c.TryAcquireLock(lock_name, entity)
